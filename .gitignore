@@ -1,0 +1,25 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Environment files
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+# Data files
+# /data/*.csv
+/data/*.parquet
+/data/*.xlsx
+
+# Virtual environment
+venv/
+.venv/
+.envrc
+
