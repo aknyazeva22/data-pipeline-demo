@@ -1,4 +1,5 @@
 pandas
+seaborn
 sqlalchemy
 pyodbc
 python-dotenv
