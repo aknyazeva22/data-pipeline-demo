@@ -1,6 +1,8 @@
+ipykernel
+jupyter
 pandas
-seaborn
-sqlalchemy
 pyodbc
 python-dotenv
+seaborn
+sqlalchemy
 
