@@ -44,7 +44,7 @@ def create_column_name_mapping(df: pd.DataFrame) -> dict:
 
 def translate_schedule(schedule: str) -> Optional[dict]:
     """
-    Translates a value from 'ouverturegranule' field into a dictionary.
+    Translates a value from 'horaires_d_ouvertures' field into a dictionary.
 
     Schedule string has the format:
     "start_date||end_date||special_note_on_openning||special_note_on_closing||
@@ -53,9 +53,6 @@ def translate_schedule(schedule: str) -> Optional[dict]:
     Returns a dict with parsed date ranges and opening hours by weekday or None if the input is invalid.
     """
     current_year = datetime.now().year
-    translated = []
-
-    print("Translating schedule:", schedule)
 
     parts = schedule.split("||")
     if len(parts) < 4:
@@ -68,15 +65,17 @@ def translate_schedule(schedule: str) -> Optional[dict]:
         "special_note_on_closing": parts[3] or None,
     }
 
+    translated_schedule["has_special_note"] = bool(translated_schedule["special_note_on_openning"] or translated_schedule["special_note_on_closing"])
+
     # Parse dates
     try:
         start_date = datetime.strptime(parts[0], "%d/%m/%Y")
         end_date = datetime.strptime(parts[1], "%d/%m/%Y")
-        # Add a note if the current year is not included in the date range
-        if start_date.year != current_year and end_date.year != current_year:
-            translated_schedule["year_note"] = "Current year is not included in the date range"
+        # Check if the current year is included in the date range
+        current_year_included = True if current_year >= start_date.year and current_year <= end_date.year else False
+        translated_schedule["current_year_included"] = current_year_included
     except ValueError:
-        translated_schedule["year_note"] = "No year in schedule"
+        translated_schedule["current_year_included"] = False
 
     weekly_hours = parts[4:]
     formatted_hours = {}
@@ -90,9 +89,35 @@ def translate_schedule(schedule: str) -> Optional[dict]:
             "afternoon_closing": weekly_hours[base_idx + 3] if base_idx + 3 < len(weekly_hours) else ""
         }
 
+    all_days_empty = all(
+        all(t.strip() == "" for t in times.values())
+        for times in formatted_hours.values()
+    )
+    translated_schedule["has_schedule_by_day"] = not all_days_empty
+
     translated_schedule["schedule_by_day"] = formatted_hours
 
     return translated_schedule
+
+def select_preferable_schedules(schedules: list) -> list:
+    """
+    Select schedules with current year included and schedule by day.
+
+    If there are such schedules, return them. Otherwise, return all schedules.
+    Parameters:
+    schedules (list): A list of translated schedules to select from, each represented as a dictionary.
+    """
+    chosen_schedules = []
+    # choose schedules with current year included and schedule by day
+    for schedule in schedules:
+        if schedule["current_year_included"] and schedule["has_schedule_by_day"]:
+            chosen_schedules.append(schedule)
+
+    if chosen_schedules != []:
+        return chosen_schedules
+    else:
+        return schedules
+
 
 def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     """
@@ -106,11 +131,12 @@ def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     if not schedules:
         return None
     
-    translated_schedules = []
-    for schedule in schedules:
-        translated_schedules.append(translate_schedule(schedule))
+    translated_schedules = [translate_schedule(schedule) for schedule in schedules]
+    # select schedules with current year included and schedule by day, if possible
+    preferable_schedules = select_preferable_schedules(translated_schedules)
 
-    return translated_schedules
+    return preferable_schedules
+
 
 def process_schedules_column(df):
     # Translate and convert to JSON string per row
@@ -118,6 +144,7 @@ def process_schedules_column(df):
         if pd.notnull(schedules):
             try:
                 translated = translate_schedules(schedules)
+                
                 return json.dumps(translated, ensure_ascii=False) if translated else None
             except Exception as e:
                 print(f"Error translating schedule: {schedules}\n{e}")
@@ -146,12 +173,11 @@ df["horaires_d_ouvertures"] = df["horaires_d_ouvertures"].apply(
     lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("[") else [x] if x else None
 )
 
-
-print(df[df["horaires_d_ouvertures"].notnull()][["horaires_d_ouvertures"]])
+# print(df[df["horaires_d_ouvertures"].notnull()][["horaires_d_ouvertures"]])
 
 df = process_schedules_column(df)
 
-print(df[df["horaires_traduits"].notnull()][["horaires_traduits"]])
+# print(df[df["horaires_traduits"].notnull()][["horaires_traduits"]])
 
 # print(df.head())
 # print(df.columns)
