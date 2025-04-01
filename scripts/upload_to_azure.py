@@ -1,14 +1,16 @@
+"""
+Upload data from a CSV file to Azure SQL
+"""
 import ast
 import json
-import os
 import re
 import unicodedata
 from datetime import datetime
 from typing import Optional
 
 import pandas as pd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import inspect
+from utils import get_engine
 
 DAYS_OF_WEEK = [
     "Monday",
@@ -19,10 +21,8 @@ DAYS_OF_WEEK = [
     "Saturday",
     "Sunday",
 ]
-
-# Load environment variables from .env file
-load_dotenv()
-
+PATH_TO_DEGUSTATIONS_FILE = "./data/degustations.csv"
+TABLE_NAME = "degustations"
 
 def clean_column_name(col: str) -> str:
     """
@@ -44,7 +44,7 @@ def clean_column_name(col: str) -> str:
     return col_clean
 
 
-def create_column_name_mapping(df: pd.DataFrame) -> dict:
+def create_column_name_mapping(given_df: pd.DataFrame) -> dict:
     """
     Create a mapping of the current column names to their cleaned versions.
 
@@ -56,7 +56,7 @@ def create_column_name_mapping(df: pd.DataFrame) -> dict:
     Returns a dictionary mapping from original column names to
     cleaned column names.
     """
-    mapping = {col: clean_column_name(col) for col in df.columns}
+    mapping = {col: clean_column_name(col) for col in given_df.columns}
     return mapping
 
 
@@ -95,13 +95,8 @@ def translate_schedule(schedule: str) -> Optional[dict]:
         start_date = datetime.strptime(parts[0], "%d/%m/%Y")
         end_date = datetime.strptime(parts[1], "%d/%m/%Y")
         # Check if the current year is included in the date range
-        current_year_included = (
-            True
-            if (
-                current_year >= start_date.year
-                and current_year <= end_date.year
-            )
-            else False
+        current_year_included = bool(
+            start_date.year <= current_year <= end_date.year
         )
         translated_schedule["current_year_included"] = current_year_included
     except ValueError:
@@ -162,22 +157,22 @@ def select_preferable_schedules(schedules: list) -> list:
         ):
             chosen_schedules.append(schedule)
 
-    if chosen_schedules != []:
+    if chosen_schedules:
         return chosen_schedules
-    else:
-        return schedules
+
+    return schedules
 
 
 def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     """
-    Translates an 'ouverturegranule' field into a human-readable textual
-    description.
+    Translate a list of schedules from string format to a list of dictionaries.
 
-    This function takes a list of strings, each representing a schedule.
-    A schedule is a string with the following format:
-    "start_date||end_date||special_note_on_openning||special_note_on_closing
-    ||morning_0||afternoon_0||morning_1||afternoon_1||
-    ...||morning_6||afternoon_6"
+    Schedules are translated from string format to a dictionary format.
+
+    If the input list is empty, return None.
+
+    If there are several schedules, try to choose schedules with current year
+    included and schedule by day, if possible. Otherwise, return all schedules.
     """
     if not schedules:
         return None
@@ -185,15 +180,16 @@ def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     translated_schedules = [
         translate_schedule(schedule) for schedule in schedules
     ]
-    # select schedules with current year included and schedule by day,
-    # if possible. Otherwise, return all schedules
+    # select schedules with current year included and schedule by day
     preferable_schedules = select_preferable_schedules(translated_schedules)
 
     return preferable_schedules
 
 
-def process_schedules_column(df):
-    # Translate and convert to JSON string per row
+def process_schedules_column(given_df):
+    """
+    Translate and convert to JSON string per row"
+    """
     def clean_schedule(schedules):
         if pd.notnull(schedules):
             try:
@@ -204,66 +200,54 @@ def process_schedules_column(df):
                     if translated
                     else None
                 )
-            except Exception as e:
+            except ValueError as e:
                 print(f"Error translating schedule: {schedules}\n{e}")
                 return None
         else:
             return None
 
-    df["horaires_traduits"] = df["horaires_d_ouvertures"].apply(clean_schedule)
-    return df
+    given_df["horaires_traduits"] = given_df["horaires_d_ouvertures"].apply(clean_schedule)
+    return given_df
 
 
-# Load CSV
-csv_path = "./data/degustations.csv"
-df = pd.read_csv(csv_path, sep=";", encoding="utf-8")
+def main():
+    """
+    Upload data from a CSV file to Azure SQL
+    """
+    # Load CSV
+    df = pd.read_csv(PATH_TO_DEGUSTATIONS_FILE, sep=";", encoding="utf-8")
 
+    # Create mapping and save it to JSON file
+    col_mapping = create_column_name_mapping(df)
+    with open("column_mapping.json", "w", encoding="utf-8") as f:
+        json.dump(col_mapping, f, ensure_ascii=False, indent=2)
 
-# Create mapping and save it to JSON file
-col_mapping = create_column_name_mapping(df)
-with open("column_mapping.json", "w", encoding="utf-8") as f:
-    json.dump(col_mapping, f, ensure_ascii=False, indent=2)
+    # Apply cleaned names to dataframe
+    df.rename(columns=col_mapping, inplace=True)
 
-# Apply cleaned names to dataframe
-df.rename(columns=col_mapping, inplace=True)
-
-df["horaires_d_ouvertures"] = df["horaires_d_ouvertures"].apply(
-    lambda x: (
-        ast.literal_eval(x)
-        if isinstance(x, str) and x.startswith("[")
-        else [x] if x else None
+    df["horaires_d_ouvertures"] = df["horaires_d_ouvertures"].apply(
+        lambda x: (
+            ast.literal_eval(x)
+            if isinstance(x, str) and x.startswith("[")
+            else [x] if x else None
+        )
     )
-)
+    # print(df[df["horaires_d_ouvertures"].notnull()][["horaires_d_ouvertures"]])
+    df = process_schedules_column(df)
 
-# print(df[df["horaires_d_ouvertures"].notnull()][["horaires_d_ouvertures"]])
+    # print(df[df["horaires_traduits"].notnull()][["horaires_traduits"]])
+    # print(df.head())
+    # print(df.columns)
 
-df = process_schedules_column(df)
+    # Upload to Azure SQL
+    engine = get_engine()
+    inspector = inspect(engine)
 
-# print(df[df["horaires_traduits"].notnull()][["horaires_traduits"]])
+    if not inspector.has_table(TABLE_NAME):
+        print("Table does not exist. Creating...")
+        df.to_sql(TABLE_NAME, con=engine, index=False)
+        print(f"Data uploaded to Azure SQL table: {TABLE_NAME}")
 
-# print(df.head())
-# print(df.columns)
 
-# Get Azure SQL credentials from environment variables
-server = os.getenv("AZURE_SQL_SERVER")
-database = os.getenv("AZURE_SQL_DATABASE")
-username = os.getenv("AZURE_SQL_USERNAME")
-password = os.getenv("AZURE_SQL_PASSWORD")
-driver = os.getenv("AZURE_SQL_DRIVER", "{ODBC Driver 18 for SQL Server}")
-
-driver_encoded = driver.replace(" ", "+")
-
-# Create connection string
-connection_string = (
-    f"mssql+pyodbc://{username}:{password}@{server}:1433/"
-    f"{database}?driver={driver_encoded}"
-)
-
-# Connect and upload
-engine = create_engine(connection_string)
-inspector = inspect(engine)
-table_name = "degustations"
-if not inspector.has_table(table_name):
-    print("Table does not exist. Creating...")
-    df.to_sql(table_name, con=engine, index=False)
-    print(f"Data uploaded to Azure SQL table: {table_name}")
+if __name__ == "__main__":
+    main()

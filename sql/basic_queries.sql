@@ -1,3 +1,3 @@
-SELECT COUNT(*) FROM 'degustations';
-SELECT TOP 5 * FROM 'degustations';
-SELECT * FROM 'degustations' WHERE department = 'Loire-Atlantique'
+SELECT COUNT(*) FROM dbo.degustations;
+SELECT TOP 5 * FROM dbo.degustations;
+SELECT * FROM dbo.degustations WHERE departement = 'Loire-Atlantique'
