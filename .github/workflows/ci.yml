@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Format with black
+      run: |
+        black --check --line-length 79 scripts tests
+
+    - name: Lint with flake8
+      run: |
+        flake8 scripts tests
+
+    - name: Run tests
+      run: |
+        pytest --maxfail=1 --disable-warnings -v
