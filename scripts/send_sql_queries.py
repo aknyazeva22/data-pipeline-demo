@@ -3,7 +3,7 @@ Send SQL queries from file `./sql/basic_queries.sql`
 to Azure SQL
 """
 from sqlalchemy import text
-from utils import get_engine
+from scripts.utils import get_engine
 
 # Load and execute SQL file
 SQL_FILE_PATH =  "./sql/basic_queries.sql"

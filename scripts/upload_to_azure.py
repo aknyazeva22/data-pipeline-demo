@@ -10,7 +10,7 @@ from typing import Optional
 
 import pandas as pd
 from sqlalchemy import inspect
-from utils import get_engine
+from scripts.utils import get_engine
 
 DAYS_OF_WEEK = [
     "Monday",
