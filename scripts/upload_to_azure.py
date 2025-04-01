@@ -10,10 +10,19 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
 
-DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+DAYS_OF_WEEK = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
 
 # Load environment variables from .env file
 load_dotenv()
+
 
 def clean_column_name(col: str) -> str:
     """
@@ -23,11 +32,14 @@ def clean_column_name(col: str) -> str:
     - Replacing non-alphanumeric characters with "_"
     - Removing leading and trailing "_"
     """
-    col_clean = unicodedata.normalize('NFKD', col).encode('ASCII', 'ignore').decode('utf-8')
+    col_clean = (
+        unicodedata.normalize("NFKD", col).encode("ASCII", "ignore").decode("utf-8")
+    )
     col_clean = col_clean.lower()
     col_clean = re.sub(r"[^\w]+", "_", col_clean)
     col_clean = col_clean.strip("_")
     return col_clean
+
 
 def create_column_name_mapping(df: pd.DataFrame) -> dict:
     """
@@ -42,6 +54,7 @@ def create_column_name_mapping(df: pd.DataFrame) -> dict:
     """
     mapping = {col: clean_column_name(col) for col in df.columns}
     return mapping
+
 
 def translate_schedule(schedule: str) -> Optional[dict]:
     """
@@ -66,14 +79,21 @@ def translate_schedule(schedule: str) -> Optional[dict]:
         "special_note_on_closing": parts[3] or None,
     }
 
-    translated_schedule["has_special_note"] = bool(translated_schedule["special_note_on_openning"] or translated_schedule["special_note_on_closing"])
+    translated_schedule["has_special_note"] = bool(
+        translated_schedule["special_note_on_openning"]
+        or translated_schedule["special_note_on_closing"]
+    )
 
     # Parse dates
     try:
         start_date = datetime.strptime(parts[0], "%d/%m/%Y")
         end_date = datetime.strptime(parts[1], "%d/%m/%Y")
         # Check if the current year is included in the date range
-        current_year_included = True if current_year >= start_date.year and current_year <= end_date.year else False
+        current_year_included = (
+            True
+            if current_year >= start_date.year and current_year <= end_date.year
+            else False
+        )
         translated_schedule["current_year_included"] = current_year_included
     except ValueError:
         translated_schedule["current_year_included"] = False
@@ -84,10 +104,18 @@ def translate_schedule(schedule: str) -> Optional[dict]:
     for i in range(7):  # 7 days
         base_idx = i * 4
         formatted_hours[DAYS_OF_WEEK[i]] = {
-            "morning_opening": weekly_hours[base_idx] if base_idx < len(weekly_hours) else "",
-            "morning_closing": weekly_hours[base_idx + 1] if base_idx + 1 < len(weekly_hours) else "",
-            "afternoon_opening": weekly_hours[base_idx + 2] if base_idx + 2 < len(weekly_hours) else "",
-            "afternoon_closing": weekly_hours[base_idx + 3] if base_idx + 3 < len(weekly_hours) else ""
+            "morning_opening": (
+                weekly_hours[base_idx] if base_idx < len(weekly_hours) else ""
+            ),
+            "morning_closing": (
+                weekly_hours[base_idx + 1] if base_idx + 1 < len(weekly_hours) else ""
+            ),
+            "afternoon_opening": (
+                weekly_hours[base_idx + 2] if base_idx + 2 < len(weekly_hours) else ""
+            ),
+            "afternoon_closing": (
+                weekly_hours[base_idx + 3] if base_idx + 3 < len(weekly_hours) else ""
+            ),
         }
 
     all_days_empty = all(
@@ -99,6 +127,7 @@ def translate_schedule(schedule: str) -> Optional[dict]:
     translated_schedule["schedule_by_day"] = formatted_hours
 
     return translated_schedule
+
 
 def select_preferable_schedules(schedules: list) -> list:
     """
@@ -131,7 +160,7 @@ def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     """
     if not schedules:
         return None
-    
+
     translated_schedules = [translate_schedule(schedule) for schedule in schedules]
     # select schedules with current year included and schedule by day, if possible
     preferable_schedules = select_preferable_schedules(translated_schedules)
@@ -145,8 +174,10 @@ def process_schedules_column(df):
         if pd.notnull(schedules):
             try:
                 translated = translate_schedules(schedules)
-                
-                return json.dumps(translated, ensure_ascii=False) if translated else None
+
+                return (
+                    json.dumps(translated, ensure_ascii=False) if translated else None
+                )
             except Exception as e:
                 print(f"Error translating schedule: {schedules}\n{e}")
                 return None
@@ -159,7 +190,7 @@ def process_schedules_column(df):
 
 # Load CSV
 csv_path = "./data/degustations.csv"
-df = pd.read_csv(csv_path, sep=';', encoding='utf-8')
+df = pd.read_csv(csv_path, sep=";", encoding="utf-8")
 
 
 # Create mapping and save it to JSON file
@@ -171,7 +202,11 @@ with open("column_mapping.json", "w", encoding="utf-8") as f:
 df.rename(columns=col_mapping, inplace=True)
 
 df["horaires_d_ouvertures"] = df["horaires_d_ouvertures"].apply(
-    lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("[") else [x] if x else None
+    lambda x: (
+        ast.literal_eval(x)
+        if isinstance(x, str) and x.startswith("[")
+        else [x] if x else None
+    )
 )
 
 # print(df[df["horaires_d_ouvertures"].notnull()][["horaires_d_ouvertures"]])
