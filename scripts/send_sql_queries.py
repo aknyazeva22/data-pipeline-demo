@@ -13,7 +13,10 @@ password = os.getenv("AZURE_SQL_PASSWORD")
 driver = os.getenv("AZURE_SQL_DRIVER", "ODBC Driver 18 for SQL Server")
 
 driver_encoded = driver.replace(" ", "+")
-connection_string = f"mssql+pyodbc://{username}:{password}@{server}:1433/{database}?driver={driver_encoded}"
+connection_string = (
+    f"mssql+pyodbc://{username}:{password}@{server}:1433/"
+    f"{database}?driver={driver_encoded}"
+)
 
 # Connect to DB
 engine = create_engine(connection_string)

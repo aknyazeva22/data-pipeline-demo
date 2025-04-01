@@ -35,6 +35,7 @@ def clean_column_name(col: str) -> str:
     col_clean = (
         unicodedata.normalize("NFKD", col).encode("ASCII", "ignore").decode("utf-8")
     )
+
     col_clean = col_clean.lower()
     col_clean = re.sub(r"[^\w]+", "_", col_clean)
     col_clean = col_clean.strip("_")
@@ -50,7 +51,8 @@ def create_column_name_mapping(df: pd.DataFrame) -> dict:
     df : pandas.DataFrame
         The DataFrame for which to generate the mapping.
 
-    Returns a dictionary mapping from original column names to cleaned column names.
+    Returns a dictionary mapping from original column names to
+    cleaned column names.
     """
     mapping = {col: clean_column_name(col) for col in df.columns}
     return mapping
@@ -61,10 +63,12 @@ def translate_schedule(schedule: str) -> Optional[dict]:
     Translates a value from 'horaires_d_ouvertures' field into a dictionary.
 
     Schedule string has the format:
-    "start_date||end_date||special_note_on_openning||special_note_on_closing||
-     morning_open_0||morning_close_0||afternoon_open_0||afternoon_close_0||...||afternoon_close_6"
+    "start_date||end_date||special_note_on_openning||special_note_on_closing
+    ||morning_open_0||morning_close_0||afternoon_open_0||afternoon_close_0||
+    ...||afternoon_close_6"
 
-    Returns a dict with parsed date ranges and opening hours by weekday or None if the input is invalid.
+    Returns a dict with parsed date ranges and opening hours by weekday
+    or None if the input is invalid.
     """
     current_year = datetime.now().year
 
@@ -91,7 +95,7 @@ def translate_schedule(schedule: str) -> Optional[dict]:
         # Check if the current year is included in the date range
         current_year_included = (
             True
-            if current_year >= start_date.year and current_year <= end_date.year
+            if (current_year >= start_date.year and current_year <= end_date.year)
             else False
         )
         translated_schedule["current_year_included"] = current_year_included
@@ -135,7 +139,8 @@ def select_preferable_schedules(schedules: list) -> list:
 
     If there are such schedules, return them. Otherwise, return all schedules.
     Parameters:
-    schedules (list): A list of translated schedules to select from, each represented as a dictionary.
+    schedules (list): A list of translated schedules to select from,
+        each represented as a dictionary.
     """
     chosen_schedules = []
     # choose schedules with current year included and schedule by day
@@ -155,8 +160,9 @@ def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
 
     This function takes a list of strings, each representing a schedule.
     A schedule is a string with the following format:
-    "start_date||end_date||special_note_on_openning||special_note_on_closing||morning_0||afternoon_0||morning_1||afternoon_1||...||morning_6||afternoon_6"
-
+    "start_date||end_date||special_note_on_openning||special_note_on_closing
+    ||morning_0||afternoon_0||morning_1||afternoon_1||
+    ...||morning_6||afternoon_6"
     """
     if not schedules:
         return None
@@ -228,7 +234,10 @@ driver = os.getenv("AZURE_SQL_DRIVER", "{ODBC Driver 18 for SQL Server}")
 driver_encoded = driver.replace(" ", "+")
 
 # Create connection string
-connection_string = f"mssql+pyodbc://{username}:{password}@{server}:1433/{database}?driver={driver_encoded}"
+connection_string = (
+    f"mssql+pyodbc://{username}:{password}@{server}:1433/"
+    f"{database}?driver={driver_encoded}"
+)
 
 # Connect and upload
 engine = create_engine(connection_string)
