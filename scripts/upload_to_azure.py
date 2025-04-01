@@ -33,7 +33,9 @@ def clean_column_name(col: str) -> str:
     - Removing leading and trailing "_"
     """
     col_clean = (
-        unicodedata.normalize("NFKD", col).encode("ASCII", "ignore").decode("utf-8")
+        unicodedata.normalize("NFKD", col)
+        .encode("ASCII", "ignore")
+        .decode("utf-8")
     )
 
     col_clean = col_clean.lower()
@@ -95,7 +97,10 @@ def translate_schedule(schedule: str) -> Optional[dict]:
         # Check if the current year is included in the date range
         current_year_included = (
             True
-            if (current_year >= start_date.year and current_year <= end_date.year)
+            if (
+                current_year >= start_date.year
+                and current_year <= end_date.year
+            )
             else False
         )
         translated_schedule["current_year_included"] = current_year_included
@@ -112,13 +117,19 @@ def translate_schedule(schedule: str) -> Optional[dict]:
                 weekly_hours[base_idx] if base_idx < len(weekly_hours) else ""
             ),
             "morning_closing": (
-                weekly_hours[base_idx + 1] if base_idx + 1 < len(weekly_hours) else ""
+                weekly_hours[base_idx + 1]
+                if base_idx + 1 < len(weekly_hours)
+                else ""
             ),
             "afternoon_opening": (
-                weekly_hours[base_idx + 2] if base_idx + 2 < len(weekly_hours) else ""
+                weekly_hours[base_idx + 2]
+                if base_idx + 2 < len(weekly_hours)
+                else ""
             ),
             "afternoon_closing": (
-                weekly_hours[base_idx + 3] if base_idx + 3 < len(weekly_hours) else ""
+                weekly_hours[base_idx + 3]
+                if base_idx + 3 < len(weekly_hours)
+                else ""
             ),
         }
 
@@ -145,7 +156,10 @@ def select_preferable_schedules(schedules: list) -> list:
     chosen_schedules = []
     # choose schedules with current year included and schedule by day
     for schedule in schedules:
-        if schedule["current_year_included"] and schedule["has_schedule_by_day"]:
+        if (
+            schedule["current_year_included"]
+            and schedule["has_schedule_by_day"]
+        ):
             chosen_schedules.append(schedule)
 
     if chosen_schedules != []:
@@ -156,7 +170,8 @@ def select_preferable_schedules(schedules: list) -> list:
 
 def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     """
-    Translates an 'ouverturegranule' field into a human-readable textual description.
+    Translates an 'ouverturegranule' field into a human-readable textual
+    description.
 
     This function takes a list of strings, each representing a schedule.
     A schedule is a string with the following format:
@@ -167,8 +182,11 @@ def translate_schedules(schedules: Optional[list]) -> Optional[list[dict]]:
     if not schedules:
         return None
 
-    translated_schedules = [translate_schedule(schedule) for schedule in schedules]
-    # select schedules with current year included and schedule by day, if possible
+    translated_schedules = [
+        translate_schedule(schedule) for schedule in schedules
+    ]
+    # select schedules with current year included and schedule by day,
+    # if possible. Otherwise, return all schedules
     preferable_schedules = select_preferable_schedules(translated_schedules)
 
     return preferable_schedules
@@ -182,7 +200,9 @@ def process_schedules_column(df):
                 translated = translate_schedules(schedules)
 
                 return (
-                    json.dumps(translated, ensure_ascii=False) if translated else None
+                    json.dumps(translated, ensure_ascii=False)
+                    if translated
+                    else None
                 )
             except Exception as e:
                 print(f"Error translating schedule: {schedules}\n{e}")
