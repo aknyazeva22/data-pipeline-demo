@@ -38,4 +38,5 @@ jobs:
     - name: Run tests
       run: |
         pip install pytest
+        export PYTHONPATH=.
         pytest --maxfail=1 --disable-warnings -v
