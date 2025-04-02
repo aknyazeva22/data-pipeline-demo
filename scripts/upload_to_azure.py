@@ -1,6 +1,7 @@
 """
 Upload data from a CSV file to Azure SQL
 """
+
 import ast
 import json
 import re
@@ -23,6 +24,7 @@ DAYS_OF_WEEK = [
 ]
 PATH_TO_DEGUSTATIONS_FILE = "./data/degustations.csv"
 TABLE_NAME = "degustations"
+
 
 def clean_column_name(col: str) -> str:
     """
@@ -190,6 +192,7 @@ def process_schedules_column(given_df):
     """
     Translate and convert to JSON string per row"
     """
+
     def clean_schedule(schedules):
         if pd.notnull(schedules):
             try:
@@ -206,7 +209,9 @@ def process_schedules_column(given_df):
         else:
             return None
 
-    given_df["horaires_traduits"] = given_df["horaires_d_ouvertures"].apply(clean_schedule)
+    given_df["horaires_traduits"] = given_df["horaires_d_ouvertures"].apply(
+        clean_schedule
+    )
     return given_df
 
 
